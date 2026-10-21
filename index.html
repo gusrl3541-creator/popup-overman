@@ -3,62 +3,269 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>팝업스토어 인원 배치 스케줄러</title>
-    <!-- React & ReactDOM CDN -->
+    <title>리상회 팝업스토어 인원 배치 스케줄러</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- Babel CDN (JSX 변환) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons CDN -->
-    <script src="https://unpkg.com/lucide@latest"></script>
   </head>
-  <body class="bg-slate-100">
+  <body class="bg-slate-100 min-h-screen">
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useEffect } = React;
+      const { useState } = React;
 
       function App() {
+        const [activeTab, setActiveTab] = useState('schedule');
+        const [selectedStore, setSelectedStore] = useState('daegu');
+        
+        // 초기 데이터 (지점, 근무자, 스케줄)
+        const [stores, setStores] = useState([
+          { id: 'daegu', name: '신세계 대구점', minStaff: 3 },
+          { id: 'gangnam', name: '강남점 팝업', minStaff: 2 },
+          { id: 'gwangju', name: '광주점 팝업', minStaff: 2 }
+        ]);
+
+        const [staffs, setStaffs] = useState([
+          { id: 1, name: '이현기', type: '정직원', role: '총괄 매니저', hourly: 12000, phone: '010-1234-5678' },
+          { id: 2, name: '김철수', type: '알바', role: 'POS / 결제', hourly: 10000, phone: '010-2222-3333' },
+          { id: 3, name: '이영희', type: '알바', role: '시식 / 호객', hourly: 10000, phone: '010-4444-5555' },
+          { id: 4, name: '박민수', type: '알바', role: '재고 / 보조', hourly: 10000, phone: '010-7777-8888' }
+        ]);
+
+        const [schedules, setSchedules] = useState([
+          { id: 1, storeId: 'daegu', date: '2026-09-01', shift: '풀타임(10:00~20:00)', staffName: '이현기' },
+          { id: 2, storeId: 'daegu', date: '2026-09-01', shift: '오전(10:00~15:00)', staffName: '김철수' },
+          { id: 3, storeId: 'daegu', date: '2026-09-01', shift: '오후(15:00~20:00)', staffName: '이영희' }
+        ]);
+
+        const [newStaff, setNewStaff] = useState({ name: '', type: '알바', role: '시식 / 호객', hourly: 10000, phone: '' });
+        const [newAssign, setNewAssign] = useState({ storeId: 'daegu', date: '2026-09-01', shift: '풀타임(10:00~20:00)', staffName: '' });
+
+        // 근무자 추가 함수
+        const handleAddStaff = (e) => {
+          e.preventDefault();
+          if (!newStaff.name) return alert('근무자 이름을 입력해주세요.');
+          setStaffs([...staffs, { ...newStaff, id: Date.now() }]);
+          setNewStaff({ name: '', type: '알바', role: '시식 / 호객', hourly: 10000, phone: '' });
+          alert('근무자가 추가되었습니다!');
+        };
+
+        // 배치 추가 함수 (중복 체크 포함)
+        const handleAddSchedule = (e) => {
+          e.preventDefault();
+          if (!newAssign.staffName) return alert('근무자를 선택해주세요.');
+
+          // 동일 날짜 다른 지점 중복 검사
+          const conflict = schedules.find(
+            s => s.date === newAssign.date && s.staffName === newAssign.staffName && s.storeId !== newAssign.storeId
+          );
+
+          if (conflict) {
+            const conflictStore = stores.find(st => st.id === conflict.storeId)?.name;
+            return alert(`⚠️ 인원 꼬임 경고!\n[${newAssign.staffName}]님은 해당 날짜(${newAssign.date})에 이미 [${conflictStore}]에 배치되어 있습니다!`);
+          }
+
+          setSchedules([...schedules, { ...newAssign, id: Date.now() }]);
+          alert('배치가 완료되었습니다.');
+        };
+
+        // 배치 삭제 함수
+        const handleDeleteSchedule = (id) => {
+          setSchedules(schedules.filter(s => s.id !== id));
+        };
+
         return (
-          <div class="min-h-screen p-6 max-w-7xl mx-auto">
-            <div class="bg-white rounded-2xl shadow-xl p-8 border border-slate-200">
-              <div class="flex items-center space-x-3 mb-6 border-b pb-4">
-                <div class="p-3 bg-indigo-600 text-white rounded-xl shadow-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h1 class="text-2xl font-bold text-slate-800">리상회 팝업스토어 인원 배치 스케줄러</h1>
-                  <p class="text-sm text-slate-500">지점별 인원 꼬임 방지 & 실시간 스케줄 관리 시스템</p>
-                </div>
+          <div className="p-4 md:p-8 max-w-6xl mx-auto">
+            {/* 헤더 */}
+            <header className="bg-indigo-600 text-white rounded-2xl p-6 mb-6 shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-bold">🏪 리상회 팝업스토어 인원 배치 시스템</h1>
+                <p className="text-indigo-100 text-sm mt-1">지점별 인원 꼬임 방지 & 실시간 스케줄 관리</p>
               </div>
+              <div className="flex gap-2 bg-indigo-700 p-1.5 rounded-xl text-sm font-semibold">
+                <button 
+                  onClick={() => setActiveTab('schedule')} 
+                  className={`px-4 py-2 rounded-lg transition ${activeTab === 'schedule' ? 'bg-white text-indigo-700 shadow' : 'text-white'}`}>
+                  📅 스케줄 배치표
+                </button>
+                <button 
+                  onClick={() => setActiveTab('staff')} 
+                  className={`px-4 py-2 rounded-lg transition ${activeTab === 'staff' ? 'bg-white text-indigo-700 shadow' : 'text-white'}`}>
+                  👥 근무자 관리 ({staffs.length}명)
+                </button>
+              </div>
+            </header>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="p-5 bg-indigo-50 border border-indigo-100 rounded-xl">
-                  <span class="text-xs font-bold text-indigo-600 tracking-wider uppercase">운영 지점</span>
-                  <p class="text-2xl font-extrabold text-indigo-900 mt-1">3개 지점</p>
-                  <p class="text-xs text-indigo-500 mt-1">대구신세계 / 강남 / 광주</p>
-                </div>
-                <div class="p-5 bg-emerald-50 border border-emerald-100 rounded-xl">
-                  <span class="text-xs font-bold text-emerald-600 tracking-wider uppercase">등록 근무자</span>
-                  <p class="text-2xl font-extrabold text-emerald-900 mt-1">6명</p>
-                  <p class="text-xs text-emerald-500 mt-1">정직원 & 알바 통합 관리</p>
-                </div>
-                <div class="p-5 bg-amber-50 border border-amber-100 rounded-xl">
-                  <span class="text-xs font-bold text-amber-600 tracking-wider uppercase">배치 상태</span>
-                  <p class="text-2xl font-extrabold text-amber-900 mt-1">정상 작동 중</p>
-                  <p class="text-xs text-amber-500 mt-1">중복 근무 자동 감지 활성화</p>
-                </div>
-              </div>
+            {/* TAB 1: 스케줄 배치표 */}
+            {activeTab === 'schedule' && (
+              <div className="space-y-6">
+                {/* 지점 선택 및 배치 등록 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* 배치 추가 폼 */}
+                  <div className="bg-white p-5 rounded-2xl shadow border border-slate-200 md:col-span-1">
+                    <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <span>➕</span> 근무 배치하기
+                    </h2>
+                    <form onSubmit={handleAddSchedule} className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">팝업 지점</label>
+                        <select 
+                          value={newAssign.storeId} 
+                          onChange={e => setNewAssign({...newAssign, storeId: e.target.value})}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl text-sm">
+                          {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">근무 날짜</label>
+                        <input 
+                          type="date" 
+                          value={newAssign.date} 
+                          onChange={e => setNewAssign({...newAssign, date: e.target.value})}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">근무 시프트</label>
+                        <select 
+                          value={newAssign.shift} 
+                          onChange={e => setNewAssign({...newAssign, shift: e.target.value})}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl text-sm">
+                          <option>풀타임(10:00~20:00)</option>
+                          <option>오전(10:00~15:00)</option>
+                          <option>오후(15:00~20:00)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">배치할 근무자</label>
+                        <select 
+                          value={newAssign.staffName} 
+                          onChange={e => setNewAssign({...newAssign, staffName: e.target.value})}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl text-sm">
+                          <option value="">-- 근무자 선택 --</option>
+                          {staffs.map(st => <option key={st.id} value={st.name}>{st.name} ({st.type} - {st.role})</option>)}
+                        </select>
+                      </div>
+                      <button type="submit" className="w-full mt-2 bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition">
+                        인원 배치 저장
+                      </button>
+                    </form>
+                  </div>
 
-              <div class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center bg-slate-50">
-                <p class="text-lg font-bold text-slate-700">🎉 시스템 세팅이 정상 완료되었습니다!</p>
-                <p class="text-sm text-slate-500 mt-2">팝업스토어 배포 시스템 연결 성공 (popup-overman.vercel.app)</p>
+                  {/* 지점별 스케줄 리스트 */}
+                  <div className="bg-white p-5 rounded-2xl shadow border border-slate-200 md:col-span-2">
+                    <div className="flex justify-between items-center mb-4 border-b pb-3">
+                      <h2 className="text-lg font-bold text-slate-800">📋 지점별 근무 배치 현황</h2>
+                      <div className="flex gap-2">
+                        {stores.map(s => (
+                          <button 
+                            key={s.id} 
+                            onClick={() => setSelectedStore(s.id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${selectedStore === s.id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                            {s.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 스케줄 목록 */}
+                    <div className="space-y-3">
+                      {schedules.filter(s => s.storeId === selectedStore).length === 0 ? (
+                        <p className="text-center py-10 text-slate-400 text-sm">배치된 인원이 없습니다. 왼쪽에서 인원을 추가해 보세요!</p>
+                      ) : (
+                        schedules.filter(s => s.storeId === selectedStore).map(sc => (
+                          <div key={sc.id} className="flex justify-between items-center p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-800">{sc.staffName}</span>
+                                <span className="text-xs bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded">{sc.shift}</span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1">🗓️ {sc.date}</p>
+                            </div>
+                            <button 
+                              onClick={() => handleDeleteSchedule(sc.id)}
+                              className="text-xs text-red-500 font-bold hover:bg-red-50 p-2 rounded-lg">
+                              삭제
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* TAB 2: 근무자 관리 */}
+            {activeTab === 'staff' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-5 rounded-2xl shadow border border-slate-200 md:col-span-1">
+                  <h2 className="text-lg font-bold text-slate-800 mb-4">👤 새 근무자 등록</h2>
+                  <form onSubmit={handleAddStaff} className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">성함</label>
+                      <input 
+                        type="text" 
+                        placeholder="예: 홍길동"
+                        value={newStaff.name} 
+                        onChange={e => setNewStaff({...newStaff, name: e.target.value})}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">구분</label>
+                      <select 
+                        value={newStaff.type} 
+                        onChange={e => setNewStaff({...newStaff, type: e.target.value})}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-sm">
+                        <option>알바</option>
+                        <option>정직원</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">주요 역할</label>
+                      <input 
+                        type="text" 
+                        placeholder="예: POS, 시식/호객, 오징어구이"
+                        value={newStaff.role} 
+                        onChange={e => setNewStaff({...newStaff, role: e.target.value})}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">연락처</label>
+                      <input 
+                        type="text" 
+                        placeholder="010-0000-0000"
+                        value={newStaff.phone} 
+                        onChange={e => setNewStaff({...newStaff, phone: e.target.value})}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl text-sm" />
+                    </div>
+                    <button type="submit" className="w-full mt-2 bg-emerald-600 text-white font-bold py-2.5 rounded-xl hover:bg-emerald-700 transition">
+                      근무자 저장
+                    </button>
+                  </form>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl shadow border border-slate-200 md:col-span-2">
+                  <h2 className="text-lg font-bold text-slate-800 mb-4">👥 전체 근무자 명단 ({staffs.length}명)</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {staffs.map(st => (
+                      <div key={st.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${st.type === '정직원' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {st.type}
+                            </span>
+                            <h3 className="font-bold text-slate-800 mt-1 text-base">{st.name}</h3>
+                          </div>
+                          <span className="text-xs text-slate-400">{st.role}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-3">📞 {st.phone || '연락처 미등록'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
