@@ -19,35 +19,39 @@
         const [activeTab, setActiveTab] = useState('schedule');
         const [selectedStore, setSelectedStore] = useState('daegu');
         
-        // 초기 데이터 (지점, 근무자, 스케줄)
+        // 초기 데이터
         const [stores, setStores] = useState([
-          { id: 'daegu', name: '신세계 대구점', minStaff: 3 },
-          { id: 'gangnam', name: '강남점 팝업', minStaff: 2 },
-          { id: 'gwangju', name: '광주점 팝업', minStaff: 2 }
+          { id: 'daegu', name: '신세계 대구점' },
+          { id: 'gangnam', name: '강남점 팝업' },
+          { id: 'gwangju', name: '광주점 팝업' }
         ]);
 
+        // 예시 인원 제거 후 이현기, 김덕환 님 기본 등록 (삭제 버튼 포함)
         const [staffs, setStaffs] = useState([
-          { id: 1, name: '이현기', type: '정직원', role: '총괄 매니저', hourly: 12000, phone: '010-1234-5678' },
-          { id: 2, name: '김철수', type: '알바', role: 'POS / 결제', hourly: 10000, phone: '010-2222-3333' },
-          { id: 3, name: '이영희', type: '알바', role: '시식 / 호객', hourly: 10000, phone: '010-4444-5555' },
-          { id: 4, name: '박민수', type: '알바', role: '재고 / 보조', hourly: 10000, phone: '010-7777-8888' }
+          { id: 1, name: '이현기', type: '정직원', role: '총괄 매니저', phone: '010-1234-5678' },
+          { id: 5, name: '김덕환', type: '알바', role: '시식 / 호객', phone: '010-6265-2443' }
         ]);
 
-        const [schedules, setSchedules] = useState([
-          { id: 1, storeId: 'daegu', date: '2026-09-01', shift: '풀타임(10:00~20:00)', staffName: '이현기' },
-          { id: 2, storeId: 'daegu', date: '2026-09-01', shift: '오전(10:00~15:00)', staffName: '김철수' },
-          { id: 3, storeId: 'daegu', date: '2026-09-01', shift: '오후(15:00~20:00)', staffName: '이영희' }
-        ]);
+        const [schedules, setSchedules] = useState([]);
 
-        const [newStaff, setNewStaff] = useState({ name: '', type: '알바', role: '시식 / 호객', hourly: 10000, phone: '' });
+        const [newStaff, setNewStaff] = useState({ name: '', type: '알바', role: '시식 / 호객', phone: '' });
         const [newAssign, setNewAssign] = useState({ storeId: 'daegu', date: '2026-09-01', shift: '풀타임(10:00~20:00)', staffName: '' });
+
+        // 근무자 삭제 함수
+        const handleDeleteStaff = (id, name) => {
+          if (confirm(`[${name}] 님을 명단에서 삭제하시겠습니까?`)) {
+            setStaffs(staffs.filter(st => st.id !== id));
+            // 해당 근무자의 스케줄도 같이 삭제
+            setSchedules(schedules.filter(sc => sc.staffName !== name));
+          }
+        };
 
         // 근무자 추가 함수
         const handleAddStaff = (e) => {
           e.preventDefault();
           if (!newStaff.name) return alert('근무자 이름을 입력해주세요.');
           setStaffs([...staffs, { ...newStaff, id: Date.now() }]);
-          setNewStaff({ name: '', type: '알바', role: '시식 / 호객', hourly: 10000, phone: '' });
+          setNewStaff({ name: '', type: '알바', role: '시식 / 호객', phone: '' });
           alert('근무자가 추가되었습니다!');
         };
 
@@ -56,7 +60,6 @@
           e.preventDefault();
           if (!newAssign.staffName) return alert('근무자를 선택해주세요.');
 
-          // 동일 날짜 다른 지점 중복 검사
           const conflict = schedules.find(
             s => s.date === newAssign.date && s.staffName === newAssign.staffName && s.storeId !== newAssign.storeId
           );
@@ -70,7 +73,6 @@
           alert('배치가 완료되었습니다.');
         };
 
-        // 배치 삭제 함수
         const handleDeleteSchedule = (id) => {
           setSchedules(schedules.filter(s => s.id !== id));
         };
@@ -100,7 +102,6 @@
             {/* TAB 1: 스케줄 배치표 */}
             {activeTab === 'schedule' && (
               <div className="space-y-6">
-                {/* 지점 선택 및 배치 등록 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* 배치 추가 폼 */}
                   <div className="bg-white p-5 rounded-2xl shadow border border-slate-200 md:col-span-1">
@@ -168,10 +169,9 @@
                       </div>
                     </div>
 
-                    {/* 스케줄 목록 */}
                     <div className="space-y-3">
                       {schedules.filter(s => s.storeId === selectedStore).length === 0 ? (
-                        <p className="text-center py-10 text-slate-400 text-sm">배치된 인원이 없습니다. 왼쪽에서 인원을 추가해 보세요!</p>
+                        <p className="text-center py-10 text-slate-400 text-sm">배치된 인원이 없습니다. 왼쪽에서 인원을 배치해 보세요!</p>
                       ) : (
                         schedules.filter(s => s.storeId === selectedStore).map(sc => (
                           <div key={sc.id} className="flex justify-between items-center p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
@@ -249,7 +249,7 @@
                   <h2 className="text-lg font-bold text-slate-800 mb-4">👥 전체 근무자 명단 ({staffs.length}명)</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {staffs.map(st => (
-                      <div key={st.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div key={st.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl relative">
                         <div className="flex justify-between items-start">
                           <div>
                             <span className={`text-xs font-bold px-2 py-0.5 rounded ${st.type === '정직원' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -257,7 +257,14 @@
                             </span>
                             <h3 className="font-bold text-slate-800 mt-1 text-base">{st.name}</h3>
                           </div>
-                          <span className="text-xs text-slate-400">{st.role}</span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs text-slate-400">{st.role}</span>
+                            <button 
+                              onClick={() => handleDeleteStaff(st.id, st.name)}
+                              className="text-xs text-red-500 hover:underline font-bold mt-1">
+                              🗑️ 삭제
+                            </button>
+                          </div>
                         </div>
                         <p className="text-xs text-slate-500 mt-3">📞 {st.phone || '연락처 미등록'}</p>
                       </div>
