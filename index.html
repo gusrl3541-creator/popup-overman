@@ -88,11 +88,6 @@
         const [activeTab, setActiveTab] = useState('calendar'); // 'calendar' | 'stores' | 'staff' | 'assign'
         const [stores, setStores] = useState(INITIAL_STORES);
         const [staffs, setStaffs] = useState(INITIAL_STAFFS);
-        const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);
-        const [salesMemos, setSalesMemos] = useState({
-          '2026-10-21_store_1': { qty: 245, sales: 1850000, note: '오징어 바베큐 맛 완판' }
-        });
-
         // Calendar State (Default to current view date)
         const [currentYear, setCurrentYear] = useState(2026);
         const [currentMonth, setCurrentMonth] = useState(10); // 1-indexed (10 = October)
@@ -952,3 +947,22 @@
                             </div>
                           </div>
                         );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      const container = document.getElementById('root');
+      const root = ReactDOM.createRoot(container);
+      root.render(<App />);
+    </script>
+  </body>
+</html>        const [schedules, setSchedules] = useState(INITIAL_SCHEDULES);
+        const [salesMemos, setSalesMemos] = useState({
+          '2026-10-21_store_1': { qty: 245, sales: 1850000, note: '오징어 바베큐 맛 완판' }
+        });
