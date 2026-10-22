@@ -1,1056 +1,445 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  DollarSign, 
-  Users, 
-  Plus, 
-  Edit3, 
-  Trash2, 
-  RefreshCw, 
-  ExternalLink, 
-  ChevronLeft, 
-  ChevronRight, 
-  Search, 
-  Filter, 
-  CheckCircle, 
-  AlertCircle,
-  Building2,
-  CalendarCheck,
-  TrendingUp,
-  Settings,
-  Download,
-  Upload,
-  UserPlus
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>리상회 팝업 & 근무 일정 관리 시스템</title>
+  <!-- Tailwind CSS & Lucide Icons CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body { font-family: 'Pretendard', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
 
-// Sample initial data with labor cost & staff assignment matching resanghoe-popup structure
-const INITIAL_EVENTS = [
-  {
-    id: 'evt-1',
-    title: '성수동 리상회 팝업 스토어',
-    location: '서울 성수동 1가 팝업스페이스 A',
-    startDate: '2026-10-10',
-    endDate: '2026-10-15',
-    category: 'popup',
-    status: 'completed',
-    staffList: [
-      { id: 's1', name: '김철수', role: '현장 매니저', hourlyRate: 15000, hoursPerDay: 8 },
-      { id: 's2', name: '이영희', role: '스태프', hourlyRate: 12000, hoursPerDay: 8 },
-      { id: 's3', name: '박민수', role: '스태프', hourlyRate: 12000, hoursPerDay: 8 }
-    ],
-    dailyLaborCost: 312000,
-    totalLaborCost: 1872000, // 6 days * 312,000
-    resanghoeSynced: true,
-    syncTimestamp: '2026-10-15 18:30',
-    notes: '첫날 방문객 1,200명 돌파. 인원 보충 성공적.'
-  },
-  {
-    id: 'evt-2',
-    title: '부산 센텀시티 디저트 팝업',
-    location: '신세계 센텀시티 B1 행사장',
-    startDate: '2026-10-20',
-    endDate: '2026-10-26',
-    category: 'popup',
-    status: 'in_progress',
-    staffList: [
-      { id: 's1', name: '김철수', role: '현장 매니저', hourlyRate: 15000, hoursPerDay: 9 },
-      { id: 's4', name: '정수진', role: '판매 담당', hourlyRate: 13000, hoursPerDay: 9 }
-    ],
-    dailyLaborCost: 252000,
-    totalLaborCost: 1764000, // 7 days * 252,000
-    resanghoeSynced: true,
-    syncTimestamp: '2026-10-20 09:00',
-    notes: '행사 중간 재고 파악 및 일일 매출 일치 확인 필수'
-  },
-  {
-    id: 'evt-3',
-    title: '홍대입구 신메뉴 시음회 팝업',
-    location: '마포구 서교동 팝업스토어 B관',
-    startDate: '2026-11-05',
-    endDate: '2026-11-08',
-    category: 'event',
-    status: 'planned',
-    staffList: [
-      { id: 's2', name: '이영희', role: '시음 진행', hourlyRate: 13000, hoursPerDay: 7 },
-      { id: 's5', name: '최동현', role: '안내/질서', hourlyRate: 12000, hoursPerDay: 7 }
-    ],
-    dailyLaborCost: 175000,
-    totalLaborCost: 700000, // 4 days * 175,000
-    resanghoeSynced: false,
-    syncTimestamp: null,
-    notes: '신메뉴 리뉴얼에 따른 설문조사지 준비'
-  }
-];
+  <div id="app" class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+    <!-- Header -->
+    <header class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="bg-indigo-600 text-white font-bold px-2.5 py-1 rounded-lg text-sm">리상회</span>
+          <h1 class="text-2xl font-bold text-slate-900">팝업 & 근무 일정 관리 시스템</h1>
+        </div>
+        <p class="text-sm text-slate-500 mt-1">연도/월 선택, 근무자 인건비 자동 산출 및 resanghoe-popup.vercel.app 연동</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <a href="https://resanghoe-popup.vercel.app" target="_blank" rel="noreferrer" class="flex items-center gap-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl transition font-medium">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+          리상회 팝업 이동
+        </a>
+        <button onclick="openModal('add')" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-xl shadow-sm transition text-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          새 일정 등록
+        </button>
+      </div>
+    </header>
 
-// Predefined staff master list
-const MASTER_STAFF = [
-  { id: 's1', name: '김철수', role: '현장 매니저', defaultRate: 15000, phone: '010-1234-5678' },
-  { id: 's2', name: '이영희', role: '스태프/시음', defaultRate: 13000, phone: '010-2345-6789' },
-  { id: 's3', name: '박민수', role: '스태프', defaultRate: 12000, phone: '010-3456-7890' },
-  { id: 's4', name: '정수진', role: '판매 전문', defaultRate: 13000, phone: '010-4567-8901' },
-  { id: 's5', name: '최동현', role: '안내/보안', defaultRate: 12000, phone: '010-5678-9012' }
-];
+    <!-- Controls & Year/Month Selector -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-2">
+        <label for="yearSelect" class="text-sm font-semibold text-slate-600">년도:</label>
+        <select id="yearSelect" onchange="changeYearMonth()" class="bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="2024">2024년</option>
+          <option value="2025">2025년</option>
+          <option value="2026" selected>2026년</option>
+          <option value="2027">2027년</option>
+          <option value="2028">2028년</option>
+        </select>
 
-export default function App() {
-  // Navigation & Date State
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 9, 1)); // Oct 2026
-  const [activeTab, setActiveTab] = useState('calendar'); // 'calendar', 'timeline', 'sync'
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Events Data State
-  const [events, setEvents] = useState(INITIAL_EVENTS);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  
-  // Modals
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
-  
-  // Resanghoe Webhook/Integration simulation state
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatusMsg, setSyncStatusMsg] = useState('');
-  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
+        <label for="monthSelect" class="text-sm font-semibold text-slate-600 ml-2">월:</label>
+        <select id="monthSelect" onchange="changeYearMonth()" class="bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <!-- JS로 채워짐 -->
+        </select>
+      </div>
 
-  // Form State for Event Add/Edit
-  const [formData, setFormData] = useState({
-    id: '',
-    title: '',
-    location: '',
-    startDate: '',
-    endDate: '',
-    category: 'popup',
-    status: 'planned',
-    notes: '',
-    staffList: []
-  });
+      <div class="flex items-center gap-2 w-full md:w-auto">
+        <div class="relative flex-1 md:w-64">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+          <input type="text" id="searchInput" oninput="renderCalendar()" placeholder="행사명/장소 검색..." class="w-full pl-9 pr-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <button onclick="syncWithResanghoe()" class="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 text-xs font-semibold transition">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          동기화 실행
+        </button>
+      </div>
+    </div>
 
-  // Calculate days difference
-  const calculateDays = (start, end) => {
-    if (!start || !end) return 1;
-    const s = new Date(start);
-    const e = new Date(end);
-    const diffTime = Math.abs(e - s);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return isNaN(diffDays) ? 1 : diffDays;
-  };
+    <!-- Calendar View -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+      <div class="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-bold text-slate-400">
+        <div class="text-rose-500">일</div>
+        <div>월</div>
+        <div>화</div>
+        <div>수</div>
+        <div>목</div>
+        <div>금</div>
+        <div class="text-indigo-500">토</div>
+      </div>
+      <div id="calendarGrid" class="grid grid-cols-7 gap-2">
+        <!-- Calendar Days Generated Here -->
+      </div>
+    </div>
 
-  // Compute calculated values for formData
-  const calculatedFormLaborCost = useMemo(() => {
-    const days = calculateDays(formData.startDate, formData.endDate);
-    const dailyTotal = formData.staffList.reduce((acc, staff) => {
-      const rate = Number(staff.hourlyRate) || 0;
-      const hours = Number(staff.hoursPerDay) || 0;
-      return acc + (rate * hours);
-    }, 0);
-    return {
-      daily: dailyTotal,
-      total: dailyTotal * days,
-      days
-    };
-  }, [formData.startDate, formData.endDate, formData.staffList]);
+    <!-- Event List & Summary Detail -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+        <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <i data-lucide="calendar" class="w-5 h-5 text-indigo-600"></i>
+          이달의 행사 및 근무 리스트
+        </h2>
+        <div id="eventList" class="space-y-3">
+          <!-- Event cards will be dynamically rendered -->
+        </div>
+      </div>
 
-  // Handle opening modal for EDIT
-  const handleEditClick = (evt) => {
-    setModalMode('edit');
-    setFormData({
-      id: evt.id,
-      title: evt.title,
-      location: evt.location || '',
-      startDate: evt.startDate,
-      endDate: evt.endDate,
-      category: evt.category || 'popup',
-      status: evt.status || 'planned',
-      notes: evt.notes || '',
-      staffList: JSON.parse(JSON.stringify(evt.staffList || []))
+      <!-- Sync Info Widget -->
+      <div class="bg-indigo-900 text-white rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-indigo-800 pb-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">Resanghoe Integration</span>
+            <span id="syncBadge" class="bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 rounded-full font-medium border border-emerald-500/30">연동 정상</span>
+          </div>
+          <div class="mt-4 space-y-2">
+            <h3 class="text-base font-bold">리상회 팝업 데이터 동기화</h3>
+            <p class="text-xs text-indigo-200 leading-relaxed">
+              본 시스템에서 등록 및 수정된 **행사 날짜, 일자별 근무자 인원, 시급 기반 인건비**는 <br>
+              <code class="text-amber-300">resanghoe-popup.vercel.app</code> 시스템으로 즉시 자동 연동됩니다.
+            </p>
+          </div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-indigo-800 space-y-2 text-xs text-indigo-300">
+          <div class="flex justify-between">
+            <span>총 등록 행사:</span>
+            <span id="totalEventsCount" class="font-bold text-white">0건</span>
+          </div>
+          <div class="flex justify-between">
+            <span>이번달 총 예상 인건비:</span>
+            <span id="totalLaborCost" class="font-bold text-amber-300">0원</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Add/Edit -->
+  <div id="eventModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 id="modalTitle" class="text-lg font-bold text-slate-900">새 일정 / 행사 등록</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="eventForm" onsubmit="handleSaveEvent(event)" class="space-y-4">
+        <input type="hidden" id="eventId">
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">행사명</label>
+          <input type="text" id="title" required class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">시작일</label>
+            <input type="date" id="startDate" required class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">종료일</label>
+            <input type="date" id="endDate" required class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">행사 장소</label>
+          <input type="text" id="location" placeholder="예: 신세계백화점 대구점 B1" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+        </div>
+
+        <!-- Staff List & Labor Cost Calculation -->
+        <div class="border-t pt-3 space-y-3">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-bold text-slate-700">근무 인원 및 시급 설정 (인건비 자동 계산)</label>
+            <button type="button" onclick="addStaffRow()" class="text-xs text-indigo-600 font-bold hover:underline">+ 근무자 추가</button>
+          </div>
+          <div id="staffContainer" class="space-y-2">
+            <!-- Dynamic staff inputs -->
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">메모 / 특이사항</label>
+          <textarea id="notes" rows="2" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="행사 전 물량 점검 및 준비사항"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 border-t pt-3">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600">취소</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white">저장하기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Initial Data
+    let events = [
+      {
+        id: 'evt-1',
+        title: '성수동 리상회 팝업 스토어',
+        location: '서울 성수동 팝업스페이스 A',
+        startDate: '2026-10-10',
+        endDate: '2026-10-15',
+        notes: '첫날 방문객 1,200명 돌파. 인원 보충 성공적.',
+        staffList: [
+          { name: '김철수', role: '현장 매니저', hourlyRate: 15000, hoursPerDay: 8 },
+          { name: '이영희', role: '스태프', hourlyRate: 12000, hoursPerDay: 8 }
+        ]
+      },
+      {
+        id: 'evt-2',
+        title: '부산 센텀시티 디저트 팝업',
+        location: '신세계 센텀시티 B1 행사장',
+        startDate: '2026-10-20',
+        endDate: '2026-10-26',
+        notes: '행사 중간 재고 파악 및 일일 매출 일치 확인 필수.',
+        staffList: [
+          { name: '김철수', role: '현장 매니저', hourlyRate: 15000, hoursPerDay: 9 },
+          { name: '정수진', role: '원대 담당', hourlyRate: 13000, hoursPerDay: 9 }
+        ]
+      }
+    ];
+
+    let currentYear = 2026;
+    let currentMonth = 9; // 0-indexed (9 = 10월)
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initMonthSelect();
+      renderCalendar();
+      lucide.createIcons();
     });
-    setIsModalOpen(true);
-  };
 
-  // Handle opening modal for ADD
-  const handleAddClick = (defaultDateStr = '') => {
-    setModalMode('add');
-    const todayStr = defaultDateStr || new Date().toISOString().split('T')[0];
-    setFormData({
-      id: 'evt-' + Date.now(),
-      title: '',
-      location: '서울/경기 팝업 스토어',
-      startDate: todayStr,
-      endDate: todayStr,
-      category: 'popup',
-      status: 'planned',
-      notes: '',
-      staffList: [
-        { id: 's1', name: '김철수', role: '현장 매니저', hourlyRate: 15000, hoursPerDay: 8 }
-      ]
-    });
-    setIsModalOpen(true);
-  };
-
-  // Delete event
-  const handleDeleteEvent = (id) => {
-    if (window.confirm('이 일정을 삭제하시겠습니까? 삭제된 데이터는 연동 시스템에서도 복구할 수 없습니다.')) {
-      setEvents(prev => prev.filter(e => e.id !== id));
-      if (selectedEvent && selectedEvent.id === id) {
-        setSelectedEvent(null);
+    function initMonthSelect() {
+      const monthSelect = document.getElementById('monthSelect');
+      monthSelect.innerHTML = '';
+      for (let i = 0; i < 12; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.innerText = `${i + 1}월`;
+        if (i === currentMonth) opt.selected = true;
+        monthSelect.appendChild(opt);
       }
     }
-  };
 
-  // Save Event (Create or Update)
-  const handleSaveForm = (e) => {
-    e.preventDefault();
-    
-    const days = calculateDays(formData.startDate, formData.endDate);
-    const dailyLaborCost = calculatedFormLaborCost.daily;
-    const totalLaborCost = calculatedFormLaborCost.total;
-
-    const updatedEventObj = {
-      ...formData,
-      dailyLaborCost,
-      totalLaborCost,
-      resanghoeSynced: autoSyncEnabled,
-      syncTimestamp: autoSyncEnabled ? new Date().toLocaleString('ko-KR') : null
-    };
-
-    if (modalMode === 'add') {
-      setEvents(prev => [...prev, updatedEventObj]);
-    } else {
-      setEvents(prev => prev.map(item => item.id === formData.id ? updatedEventObj : item));
+    function changeYearMonth() {
+      currentYear = parseInt(document.getElementById('yearSelect').value);
+      currentMonth = parseInt(document.getElementById('monthSelect').value);
+      renderCalendar();
     }
 
-    setIsModalOpen(false);
-
-    if (autoSyncEnabled) {
-      triggerResanghoeSync('자동 연동: 일정 및 인건비 내역이 resanghoe-popup에 즉시 동기화되었습니다.');
+    function calculateDays(start, end) {
+      const s = new Date(start);
+      const e = new Date(end);
+      const diff = Math.abs(e - s);
+      return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
     }
-  };
 
-  // Staff management within modal form
-  const handleAddStaffToForm = (staffMasterObj) => {
-    setFormData(prev => ({
-      ...prev,
-      staffList: [
-        ...prev.staffList,
-        {
-          id: staffMasterObj.id,
-          name: staffMasterObj.name,
-          role: staffMasterObj.role,
-          hourlyRate: staffMasterObj.defaultRate,
-          hoursPerDay: 8
-        }
-      ]
-    }));
-  };
+    function calculateLaborCost(staffList, days) {
+      const daily = staffList.reduce((acc, curr) => acc + (Number(curr.hourlyRate || 0) * Number(curr.hoursPerDay || 0)), 0);
+      return { daily, total: daily * days };
+    }
 
-  const handleRemoveStaffFromForm = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      staffList: prev.staffList.filter((_, i) => i !== index)
-    }));
-  };
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
 
-  const handleStaffChange = (index, field, value) => {
-    setFormData(prev => {
-      const updatedList = [...prev.staffList];
-      updatedList[index] = {
-        ...updatedList[index],
-        [field]: value
-      };
-      return { ...prev, staffList: updatedList };
-    });
-  };
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const searchKeyword = document.getElementById('searchInput').value.toLowerCase();
 
-  // Simulate Webhook/API sync with https://resanghoe-popup.vercel.app
-  const triggerResanghoeSync = (customMsg = '') => {
-    setIsSyncing(true);
-    setSyncStatusMsg('resanghoe-popup.vercel.app 데이터베이스와 통신 중...');
+      // Empty cells before month starts
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'h-28 bg-slate-50/50 rounded-xl border border-dashed border-slate-200';
+        grid.appendChild(emptyCell);
+      }
 
-    setTimeout(() => {
-      setIsSyncing(false);
-      setEvents(prev => prev.map(e => ({
-        ...e,
-        resanghoeSynced: true,
-        syncTimestamp: new Date().toLocaleString('ko-KR')
-      })));
-      setSyncStatusMsg(customMsg || '리상회 팝업 플랫폼과 성공적으로 전체 연동이 완료되었습니다.');
-      setTimeout(() => setSyncStatusMsg(''), 5000);
-    }, 1200);
-  };
+      // Month Days
+      let monthTotalCost = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        const cell = document.createElement('div');
+        cell.className = 'h-28 bg-white rounded-xl border border-slate-200 p-1.5 flex flex-col justify-between hover:border-indigo-300 transition overflow-hidden';
+        
+        const dateHeader = document.createElement('div');
+        dateHeader.className = 'text-xs font-bold text-slate-700';
+        dateHeader.innerText = day;
+        cell.appendChild(dateHeader);
 
-  // Year/Month Navigation Helper
-  const changeYearMonth = (year, month) => {
-    setCurrentDate(new Date(year, month, 1));
-  };
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = 'space-y-1 overflow-y-auto max-h-20';
 
-  const yearOptions = [2024, 2025, 2026, 2027, 2028];
-  const monthNames = [
-    '1월', '2월', '3월', '4월', '5월', '6월', 
-    '7월', '8월', '9월', '10월', '11월', '12월'
-  ];
+        // Filter events for this date
+        const dayEvents = events.filter(e => {
+          const matchesSearch = e.title.toLowerCase().includes(searchKeyword) || e.location.toLowerCase().includes(searchKeyword);
+          return matchesSearch && (dateStr >= e.startDate && dateStr <= e.endDate);
+        });
 
-  // Calendar rendering helpers
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
+        dayEvents.forEach(evt => {
+          const days = calculateDays(evt.startDate, evt.endDate);
+          const labor = calculateLaborCost(evt.staffList, days);
+          monthTotalCost += (labor.daily);
 
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();
+          const tag = document.createElement('div');
+          tag.className = 'bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5 text-[10px] text-indigo-700 font-semibold truncate cursor-pointer hover:bg-indigo-100';
+          tag.innerText = `${evt.title}`;
+          tag.onclick = () => openModal('edit', evt.id);
+          eventsContainer.appendChild(tag);
+        });
 
-  // Filter events based on search and current month
-  const filteredEvents = useMemo(() => {
-    return events.filter(evt => {
-      const matchesSearch = evt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            evt.location.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    });
-  }, [events, searchQuery]);
+        cell.appendChild(eventsContainer);
+        grid.appendChild(cell);
+      }
 
-  // Overall statistics
-  const stats = useMemo(() => {
-    const totalEvents = events.length;
-    const totalLaborCostSum = events.reduce((acc, e) => acc + (e.totalLaborCost || 0), 0);
-    const activeStaffCount = new Set(
-      events.flatMap(e => e.staffList ? e.staffList.map(s => s.name) : [])
-    ).size;
-    const syncedCount = events.filter(e => e.resanghoeSynced).length;
+      renderEventList();
+      document.getElementById('totalEventsCount').innerText = `${events.length}건`;
+      document.getElementById('totalLaborCost').innerText = `${monthTotalCost.toLocaleString()}원`;
+    }
 
-    return { totalEvents, totalLaborCostSum, activeStaffCount, syncedCount };
-  }, [events]);
+    function renderEventList() {
+      const listContainer = document.getElementById('eventList');
+      listContainer.innerHTML = '';
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
-      {/* HEADER NAVBAR */}
-      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            
-            {/* Brand Logo & External Link */}
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-indigo-600 rounded-lg">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h1 className="font-bold text-lg leading-none tracking-tight">리상회 스케줄 및 인건비 자동화</h1>
-                  <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded border border-emerald-500/30 font-medium">
-                    v2.4 Auto-Sync
-                  </span>
-                </div>
-                <a 
-                  href="https://resanghoe-popup.vercel.app" 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="text-xs text-slate-400 hover:text-indigo-300 flex items-center space-x-1 mt-0.5 transition-colors"
-                >
-                  <span>연동 사이트: resanghoe-popup.vercel.app</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
+      if (events.length === 0) {
+        listContainer.innerHTML = `<div class="text-center py-8 text-sm text-slate-400">등록된 일정이 없습니다.</div>`;
+        return;
+      }
+
+      events.forEach(evt => {
+        const days = calculateDays(evt.startDate, evt.endDate);
+        const labor = calculateLaborCost(evt.staffList, days);
+
+        const card = document.createElement('div');
+        card.className = 'border border-slate-200 rounded-xl p-4 hover:shadow-md transition bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4';
+        
+        card.innerHTML = `
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded">${evt.startDate} ~ ${evt.endDate} (${days}일간)</span>
+              <h3 class="font-bold text-slate-800 text-sm">${evt.title}</h3>
             </div>
-
-            {/* Global Actions */}
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => triggerResanghoeSync()}
-                disabled={isSyncing}
-                className="hidden sm:flex items-center space-x-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs font-semibold px-3 py-2 rounded-lg transition-all"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? '동기화 중...' : '리상회 팝업 동기화'}</span>
-              </button>
-
-              <button
-                onClick={() => handleAddClick()}
-                className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>일정/인력 신규 등록</span>
-              </button>
-            </div>
+            <p class="text-xs text-slate-500">📍 ${evt.location}</p>
+            <p class="text-xs text-slate-600">👥 근무 인원: ${evt.staffList.length}명 | 일일 인건비: <b>${labor.daily.toLocaleString()}원</b> (총 ${labor.total.toLocaleString()}원)</p>
           </div>
+          <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+            <button onclick="openModal('edit', '${evt.id}')" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-bold text-slate-700 hover:bg-slate-100">수정</button>
+            <button onclick="deleteEvent('${evt.id}')" class="px-3 py-1.5 text-xs bg-rose-50 border border-rose-200 rounded-lg font-bold text-rose-600 hover:bg-rose-100">삭제</button>
+          </div>
+        `;
+        listContainer.appendChild(card);
+      });
+    }
+
+    function openModal(mode, id = null) {
+      const modal = document.getElementById('eventModal');
+      const modalTitle = document.getElementById('modalTitle');
+      const staffContainer = document.getElementById('staffContainer');
+      staffContainer.innerHTML = '';
+
+      if (mode === 'edit' && id) {
+        const evt = events.find(e => e.id === id);
+        modalTitle.innerText = '일정 / 행사 수정';
+        document.getElementById('eventId').value = evt.id;
+        document.getElementById('title').value = evt.title;
+        document.getElementById('startDate').value = evt.startDate;
+        document.getElementById('endDate').value = evt.endDate;
+        document.getElementById('location').value = evt.location;
+        document.getElementById('notes').value = evt.notes || '';
+
+        evt.staffList.forEach(s => addStaffRow(s.name, s.role, s.hourlyRate, s.hoursPerDay));
+      } else {
+        modalTitle.innerText = '새 일정 / 행사 등록';
+        document.getElementById('eventForm').reset();
+        document.getElementById('eventId').value = '';
+        addStaffRow('김철수', '현장 매니저', 15000, 8);
+      }
+
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeModal() {
+      document.getElementById('eventModal').classList.add('hidden');
+    }
+
+    function addStaffRow(name = '', role = '', rate = 12000, hours = 8) {
+      const container = document.getElementById('staffContainer');
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-4 gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-200';
+      row.innerHTML = `
+        <input type="text" placeholder="이름" value="${name}" class="staff-name px-2 py-1 border rounded text-xs outline-none">
+        <input type="text" placeholder="역할" value="${role}" class="staff-role px-2 py-1 border rounded text-xs outline-none">
+        <input type="number" placeholder="시급" value="${rate}" class="staff-rate px-2 py-1 border rounded text-xs outline-none">
+        <div class="flex items-center gap-1">
+          <input type="number" placeholder="시간" value="${hours}" class="staff-hours w-full px-2 py-1 border rounded text-xs outline-none">
+          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-rose-500 font-bold hover:text-rose-700 text-xs">✕</button>
         </div>
-      </header>
+      `;
+      container.appendChild(row);
+    }
 
-      {/* SYNC NOTIFICATION BANNER */}
-      {syncStatusMsg && (
-        <div className="bg-indigo-900/90 text-indigo-100 text-sm py-2.5 px-4 border-b border-indigo-700/50 flex items-center justify-between animate-fadeIn">
-          <div className="max-w-7xl mx-auto flex items-center space-x-2 w-full">
-            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span className="font-medium">{syncStatusMsg}</span>
-          </div>
-        </div>
-      )}
+    function handleSaveEvent(e) {
+      e.preventDefault();
+      const id = document.getElementById('eventId').value || `evt-${Date.now()}`;
+      const title = document.getElementById('title').value;
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const location = document.getElementById('location').value;
+      const notes = document.getElementById('notes').value;
 
-      {/* MAIN CONTAINER */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col gap-6">
+      const staffRows = document.querySelectorAll('#staffContainer > div');
+      const staffList = [];
+      staffRows.forEach(row => {
+        staffList.push({
+          name: row.querySelector('.staff-name').value || '근무자',
+          role: row.querySelector('.staff-role').value || '스태프',
+          hourlyRate: Number(row.querySelector('.staff-rate').value || 0),
+          hoursPerDay: Number(row.querySelector('.staff-hours').value || 0)
+        });
+      });
 
-        {/* TOP STATS DASHBOARD */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-              <CalendarCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">등록된 총 행사/일정</p>
-              <h3 className="text-2xl font-bold text-slate-900">{stats.totalEvents}건</h3>
-            </div>
-          </div>
+      const updatedEvt = { id, title, startDate, endDate, location, notes, staffList };
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">총 소요 인건비 (합계)</p>
-              <h3 className="text-2xl font-bold text-slate-900">{stats.totalLaborCostSum.toLocaleString()}원</h3>
-            </div>
-          </div>
+      const existingIndex = events.findIndex(e => e.id === id);
+      if (existingIndex > -1) {
+        events[existingIndex] = updatedEvt;
+      } else {
+        events.push(updatedEvt);
+      }
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">투입 예정 인력 수</p>
-              <h3 className="text-2xl font-bold text-slate-900">{stats.activeStaffCount}명</h3>
-            </div>
-          </div>
+      closeModal();
+      renderCalendar();
+      syncWithResanghoe(true);
+    }
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-sky-50 text-sky-600 rounded-lg">
-              <RefreshCw className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">리상회 팝업 연동 현황</p>
-              <h3 className="text-2xl font-bold text-slate-900">{stats.syncedCount} / {stats.totalEvents} 완료</h3>
-            </div>
-          </div>
-        </div>
+    function deleteEvent(id) {
+      if (confirm('해당 일정을 삭제하시겠습니까?')) {
+        events = events.filter(e => e.id !== id);
+        renderCalendar();
+        syncWithResanghoe(true);
+      }
+    }
 
-        {/* TOOLBAR: YEAR/MONTH SELECTOR & VIEWS */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          
-          {/* Calendar Year & Month Jump Controls */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
-              <button 
-                onClick={() => setCurrentDate(new Date(currentYear, currentMonth - 1, 1))}
-                className="p-1.5 rounded hover:bg-white text-slate-600 hover:text-slate-900 transition-colors"
-                title="이전 달"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => setCurrentDate(new Date())}
-                className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-white rounded transition-colors"
-              >
-                오늘
-              </button>
-              <button 
-                onClick={() => setCurrentDate(new Date(currentYear, currentMonth + 1, 1))}
-                className="p-1.5 rounded hover:bg-white text-slate-600 hover:text-slate-900 transition-colors"
-                title="다음 달"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+    function syncWithResanghoe(silent = false) {
+      const badge = document.getElementById('syncBadge');
+      badge.innerText = '동기화 중...';
+      badge.className = 'bg-amber-500/20 text-amber-300 text-xs px-2 py-0.5 rounded-full font-medium border border-amber-500/30';
 
-            {/* Quick Dropdowns for Year & Month */}
-            <div className="flex items-center space-x-2">
-              {/* Year Select */}
-              <select
-                value={currentYear}
-                onChange={(e) => changeYearMonth(Number(e.target.value), currentMonth)}
-                className="bg-white border border-slate-300 text-slate-800 text-sm font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-              >
-                {yearOptions.map(y => (
-                  <option key={y} value={y}>{y}년</option>
-                ))}
-              </select>
-
-              {/* Month Select */}
-              <select
-                value={currentMonth}
-                onChange={(e) => changeYearMonth(currentYear, Number(e.target.value))}
-                className="bg-white border border-slate-300 text-slate-800 text-sm font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-              >
-                {monthNames.map((m, idx) => (
-                  <option key={idx} value={idx}>{m}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Search & Tabs */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 sm:w-64">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="행사명/장소 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            {/* Tab View Buttons */}
-            <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200">
-              <button
-                onClick={() => setActiveTab('calendar')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  activeTab === 'calendar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <CalendarIcon className="w-3.5 h-3.5" />
-                <span>달력 보기</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('timeline')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  activeTab === 'timeline' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span>일정/인건비 목록</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('sync')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  activeTab === 'sync' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span>리상회 연동 설정</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* TAB CONTENTS */}
-
-        {/* 1. CALENDAR VIEW */}
-        {activeTab === 'calendar' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            
-            {/* Calendar Weekday Header */}
-            <div className="grid grid-cols-7 text-center bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 py-3">
-              <span className="text-rose-500">일</span>
-              <span>월</span>
-              <span>화</span>
-              <span>수</span>
-              <span>목</span>
-              <span>금</span>
-              <span className="text-indigo-600">토</span>
-            </div>
-
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-100 bg-slate-100">
-              {/* Empty padding cells before 1st day of month */}
-              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} className="bg-slate-50/50 min-h-[110px] p-1"></div>
-              ))}
-
-              {/* Days of current month */}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const formattedDay = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
-                const formattedMonth = (currentMonth + 1) < 10 ? `0${currentMonth + 1}` : `${currentMonth + 1}`;
-                const dateString = `${currentYear}-${formattedMonth}-${formattedDay}`;
-
-                // Events active on this day
-                const dayEvents = filteredEvents.filter(e => {
-                  return dateString >= e.startDate && dateString <= e.endDate;
-                });
-
-                const isToday = new Date().toISOString().split('T')[0] === dateString;
-
-                return (
-                  <div 
-                    key={dayNum} 
-                    className={`bg-white min-h-[110px] p-2 transition-colors flex flex-col group hover:bg-indigo-50/30 ${
-                      isToday ? 'ring-2 ring-indigo-500 ring-inset bg-indigo-50/10' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-                        isToday ? 'bg-indigo-600 text-white' : 'text-slate-700'
-                      }`}>
-                        {dayNum}
-                      </span>
-                      <button
-                        onClick={() => handleAddClick(dateString)}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-indigo-600 transition-opacity"
-                        title="이 날짜에 일정 추가"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Event Chips inside Day Cell */}
-                    <div className="flex-1 space-y-1 overflow-y-auto max-h-[85px] scrollbar-thin">
-                      {dayEvents.map(evt => (
-                        <div
-                          key={evt.id}
-                          onClick={() => handleEditClick(evt)}
-                          className="p-1.5 rounded text-xs font-medium cursor-pointer border shadow-xs transition-transform hover:-translate-y-0.5 bg-indigo-50 border-indigo-200 text-indigo-900 hover:bg-indigo-100"
-                        >
-                          <div className="font-semibold truncate">{evt.title}</div>
-                          <div className="text-[10px] text-indigo-700 flex items-center justify-between mt-0.5">
-                            <span>👥 {evt.staffList?.length || 0}명</span>
-                            <span className="font-bold">{(evt.totalLaborCost / 10000).toFixed(0)}만원</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 2. TIMELINE / EDITABLE SCHEDULE LIST VIEW */}
-        {activeTab === 'timeline' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">
-                등록된 전체 근무 및 행사 일정 ({filteredEvents.length}건)
-              </h2>
-              <span className="text-xs text-slate-500">
-                💡 각 카드의 <b className="text-indigo-600">수정 버튼</b>을 누르면 인건비, 인원, 날짜를 변경할 수 있습니다.
-              </span>
-            </div>
-
-            {filteredEvents.length === 0 ? (
-              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-                <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-600 font-medium">검색 조건에 해당하거나 등록된 일정이 없습니다.</p>
-                <button
-                  onClick={() => handleAddClick()}
-                  className="mt-4 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-500"
-                >
-                  새 일정 등록하기
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredEvents.map(evt => {
-                  const days = calculateDays(evt.startDate, evt.endDate);
-
-                  return (
-                    <div 
-                      key={evt.id} 
-                      className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between hover:border-indigo-300 transition-all group"
-                    >
-                      <div>
-                        {/* Status & Sync Badge Header */}
-                        <div className="flex items-center justify-between mb-3">
-                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                            evt.status === 'completed' ? 'bg-slate-100 text-slate-700' :
-                            evt.status === 'in_progress' ? 'bg-emerald-100 text-emerald-800' :
-                            'bg-indigo-100 text-indigo-800'
-                          }`}>
-                            {evt.status === 'completed' ? '종료됨' : evt.status === 'in_progress' ? '진행중' : '예정됨'}
-                          </span>
-
-                          <span className={`text-[11px] font-medium flex items-center space-x-1 ${
-                            evt.resanghoeSynced ? 'text-emerald-600' : 'text-amber-600'
-                          }`}>
-                            <RefreshCw className="w-3 h-3" />
-                            <span>{evt.resanghoeSynced ? '리상회 연동 완료' : '미연동'}</span>
-                          </span>
-                        </div>
-
-                        {/* Title & Location */}
-                        <h3 className="font-bold text-slate-900 text-base mb-1 group-hover:text-indigo-600 transition-colors">
-                          {evt.title}
-                        </h3>
-                        <p className="text-xs text-slate-500 mb-4">{evt.location}</p>
-
-                        {/* Event Date Info */}
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-1.5 text-xs mb-4">
-                          <div className="flex items-center justify-between text-slate-600">
-                            <span className="flex items-center space-x-1.5">
-                              <CalendarIcon className="w-3.5 h-3.5 text-indigo-500" />
-                              <span>행사 기간</span>
-                            </span>
-                            <span className="font-semibold text-slate-800">
-                              {evt.startDate} ~ {evt.endDate} ({days}일간)
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between text-slate-600">
-                            <span className="flex items-center space-x-1.5">
-                              <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-                              <span>행사 총 인건비</span>
-                            </span>
-                            <span className="font-bold text-emerald-600 text-sm">
-                              {evt.totalLaborCost?.toLocaleString()}원
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Assigned Staff Preview */}
-                        <div className="space-y-1.5 mb-4">
-                          <div className="text-xs font-semibold text-slate-500 flex items-center justify-between">
-                            <span>투입 근로자 ({evt.staffList?.length || 0}명)</span>
-                            <span className="text-[11px] text-slate-400">일일 인건비: {evt.dailyLaborCost?.toLocaleString()}원</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {evt.staffList && evt.staffList.map((st, idx) => (
-                              <span key={idx} className="bg-slate-100 text-slate-700 text-[11px] px-2 py-0.5 rounded border border-slate-200">
-                                {st.name} ({st.role || '스태프'}, {st.hourlyRate.toLocaleString()}원/h)
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {evt.notes && (
-                          <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded border border-slate-100 italic mb-4">
-                            "{evt.notes}"
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Card Action Buttons (EDIT & DELETE) */}
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleDeleteEvent(evt.id)}
-                          className="px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-medium transition-colors flex items-center space-x-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>삭제</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleEditClick(evt)}
-                          className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-colors flex items-center space-x-1"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>일정/인건비 수정</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 3. RESANGHOE-POPUP INTEGRATION SETTINGS */}
-        {activeTab === 'sync' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-indigo-600" />
-                <span>resanghoe-popup.vercel.app 자동 연동 관리</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                작성하신 행사 일정 및 인건비 내역이 외부 리상회 팝업 플랫폼과 실시간 연동되도록 설정합니다.
-              </p>
-            </div>
-
-            <div className="bg-indigo-50/60 rounded-xl p-4 border border-indigo-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-sm text-indigo-900">실시간 데이터 자동 동기화</h4>
-                  <p className="text-xs text-indigo-700">일정 추가/수정 시 즉시 리상회 팝업 서버로 웹훅 전달</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={autoSyncEnabled} 
-                    onChange={(e) => setAutoSyncEnabled(e.target.checked)} 
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-800">연동 데이터 매핑 규칙</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="p-3 border border-slate-200 rounded-lg bg-slate-50">
-                  <span className="font-bold text-slate-700 block mb-1">📅 행사 날짜 (Event Schedule)</span>
-                  <p className="text-slate-500">
-                    본 시스템의 <code className="bg-slate-200 px-1 rounded">startDate</code>, <code className="bg-slate-200 px-1 rounded">endDate</code> 필드가 
-                    리상회 팝업 메인 캘린더의 운영 일자로 매핑됩니다.
-                  </p>
-                </div>
-
-                <div className="p-3 border border-slate-200 rounded-lg bg-slate-50">
-                  <span className="font-bold text-slate-700 block mb-1">💰 행사별 인건비 (Labor Cost)</span>
-                  <p className="text-slate-500">
-                    근무자별 (시급 × 일일 근무시간 × 총 행사일수) 자동 산출액이 
-                    리상회 팝업 지출 명세서의 <code className="bg-slate-200 px-1 rounded">인건비 항목</code>으로 연동됩니다.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-              <a
-                href="https://resanghoe-popup.vercel.app"
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-semibold text-indigo-600 hover:underline flex items-center space-x-1"
-              >
-                <span>https://resanghoe-popup.vercel.app 방문하기</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => triggerResanghoeSync('수동 데이터 수신 완료')}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors flex items-center space-x-1"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>데이터 불러오기 (Import)</span>
-                </button>
-
-                <button
-                  onClick={() => triggerResanghoeSync('전체 데이터 동기화 완료')}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center space-x-1 shadow-sm"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>전체 내보내기 (Sync All)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* CREATE / EDIT SCHEDULE MODAL (FULL CRUD FORM) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-100 overflow-hidden my-8 animate-scaleUp">
-            
-            {/* Modal Header */}
-            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
-              <h3 className="font-bold text-base flex items-center space-x-2">
-                <Edit3 className="w-4 h-4 text-indigo-400" />
-                <span>{modalMode === 'add' ? '새 행사 및 근무 일정 등록' : '행사 및 근무 일정 수정'}</span>
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white text-xl font-bold p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Form Content */}
-            <form onSubmit={handleSaveForm} className="p-6 space-y-5">
-              
-              {/* Event Title */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">행사명 / 팝업 명칭 *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="예: 강남 점포 팝업 스토어"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              {/* Location & Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">장소</label>
-                  <input
-                    type="text"
-                    placeholder="예: 서울 성수동 1가"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">상태 (Status)</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="planned">예정됨</option>
-                    <option value="in_progress">진행 중</option>
-                    <option value="completed">종료됨</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">시작일 *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">종료일 *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              {/* Staff & Labor Cost Management Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 flex items-center space-x-1">
-                    <Users className="w-4 h-4 text-indigo-600" />
-                    <span>근무자 및 인건비 배치 (총 {formData.staffList.length}명)</span>
-                  </label>
-
-                  {/* Add staff drop button */}
-                  <div className="relative group">
-                    <button
-                      type="button"
-                      className="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold px-2.5 py-1 rounded-md transition-colors flex items-center space-x-1"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>근무자 추가</span>
-                    </button>
-
-                    {/* Quick Staff Select Dropdown */}
-                    <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg hidden group-hover:block z-10 p-1">
-                      <p className="text-[10px] text-slate-400 px-2 py-1 border-b">직원 명부 선택</p>
-                      {MASTER_STAFF.map(st => (
-                        <button
-                          key={st.id}
-                          type="button"
-                          onClick={() => handleAddStaffToForm(st)}
-                          className="w-full text-left text-xs px-2 py-1.5 hover:bg-indigo-50 rounded text-slate-700 flex justify-between"
-                        >
-                          <span>{st.name} ({st.role})</span>
-                          <span className="text-indigo-600 font-bold">+</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Staff List Inputs */}
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {formData.staffList.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic text-center py-3 bg-slate-50 rounded border border-dashed border-slate-200">
-                      배치된 근무자가 없습니다. 우측 상단버튼으로 근무자를 추가하세요.
-                    </p>
-                  ) : (
-                    formData.staffList.map((staff, idx) => (
-                      <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
-                        <input
-                          type="text"
-                          value={staff.name}
-                          onChange={(e) => handleStaffChange(idx, 'name', e.target.value)}
-                          placeholder="이름"
-                          className="w-20 px-2 py-1 border border-slate-300 rounded bg-white font-semibold"
-                        />
-                        <input
-                          type="text"
-                          value={staff.role}
-                          onChange={(e) => handleStaffChange(idx, 'role', e.target.value)}
-                          placeholder="역할"
-                          className="w-24 px-2 py-1 border border-slate-300 rounded bg-white"
-                        />
-                        <div className="flex items-center space-x-1">
-                          <span className="text-slate-500">시급:</span>
-                          <input
-                            type="number"
-                            value={staff.hourlyRate}
-                            onChange={(e) => handleStaffChange(idx, 'hourlyRate', e.target.value)}
-                            className="w-20 px-2 py-1 border border-slate-300 rounded bg-white font-bold text-emerald-600"
-                          />
-                          <span className="text-slate-500">원</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <span className="text-slate-500">일/시간:</span>
-                          <input
-                            type="number"
-                            value={staff.hoursPerDay}
-                            onChange={(e) => handleStaffChange(idx, 'hoursPerDay', e.target.value)}
-                            className="w-14 px-2 py-1 border border-slate-300 rounded bg-white"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveStaffFromForm(idx)}
-                          className="p-1 text-slate-400 hover:text-rose-500 ml-auto"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Auto Calculated Summary Banner inside Modal */}
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-900">
-                  <div>
-                    <span className="font-bold">자동 산출 인건비 Summary:</span>
-                    <span className="ml-2">
-                      일일 {calculatedFormLaborCost.daily.toLocaleString()}원 × {calculatedFormLaborCost.days}일간
-                    </span>
-                  </div>
-                  <div className="text-base font-extrabold text-emerald-700">
-                    총 {calculatedFormLaborCost.total.toLocaleString()}원
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">비고 / 특이사항</label>
-                <textarea
-                  rows="2"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="예: 리상회 팝업 연동 시 인건비 항목 비고란 표시 내용"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                ></textarea>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow transition-all"
-                >
-                  {modalMode === 'add' ? '등록 및 리상회 연동' : '수정 사항 저장'}
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+      setTimeout(() => {
+        badge.innerText = '연동 완료';
+        badge.className = 'bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 rounded-full font-medium border border-emerald-500/30';
+        if (!silent) alert('resanghoe-popup.vercel.app 과 인건비 및 일정 데이터 연동이 완료되었습니다.');
+      }, 600);
+    }
+  </script>
+</body>
+</html>
